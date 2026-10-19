@@ -1,180 +1,271 @@
-import { Image } from 'expo-image';
-import { SymbolView } from 'expo-symbols';
-import { Platform, Pressable, ScrollView, StyleSheet } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import React, { useState } from 'react';
+import {
+  View,
+  Text,
+  StyleSheet,
+  ScrollView,
+  Pressable,
+  SafeAreaView,
+} from 'react-native';
+import { router } from 'expo-router';
+import { ShoColors, ShoRadius, ShoSpacing } from '@/constants/sho-theme';
+import { ShoHeader } from '@/components/sho-header';
+import { ShoFloatingBottomNav } from '@/components/sho-bottom-nav';
+import { ShoProductCard } from '@/components/sho-product-card';
+import { ShoIcon } from '@/components/sho-icon';
+import { useSho } from '@/context/sho-context';
 
-import { ExternalLink } from '@/components/external-link';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Collapsible } from '@/components/ui/collapsible';
-import { WebBadge } from '@/components/web-badge';
-import { BottomTabInset, MaxContentWidth, Spacing } from '@/constants/theme';
-import { useTheme } from '@/hooks/use-theme';
+export default function ExploreCatalogueScreen() {
+  const { products, selectedCategory, setSelectedCategory } = useSho();
+  const [activeSort, setActiveSort] = useState<'featured' | 'price-low' | 'price-high' | 'rating'>(
+    'featured'
+  );
 
-export default function TabTwoScreen() {
-  const safeAreaInsets = useSafeAreaInsets();
-  const insets = {
-    ...safeAreaInsets,
-    bottom: safeAreaInsets.bottom + BottomTabInset + Spacing.three,
-  };
-  const theme = useTheme();
+  const categories = ['All', 'Sneakers', 'Boots', 'Loafers', 'Skate & Low', 'Mules'];
 
-  const contentPlatformStyle = Platform.select({
-    android: {
-      paddingTop: insets.top,
-      paddingLeft: insets.left,
-      paddingRight: insets.right,
-      paddingBottom: insets.bottom,
-    },
-    web: {
-      paddingTop: Spacing.six,
-      paddingBottom: Spacing.four,
-    },
+  const filteredProducts = products.filter((p) => {
+    if (selectedCategory === 'All') return true;
+    return p.category === selectedCategory;
+  });
+
+  const sortedProducts = [...filteredProducts].sort((a, b) => {
+    if (activeSort === 'price-low') return a.price - b.price;
+    if (activeSort === 'price-high') return b.price - a.price;
+    if (activeSort === 'rating') return b.rating - a.rating;
+    return (b.featured ? 1 : 0) - (a.featured ? 1 : 0);
   });
 
   return (
-    <ScrollView
-      style={[styles.scrollView, { backgroundColor: theme.background }]}
-      contentInset={insets}
-      contentContainerStyle={[styles.contentContainer, contentPlatformStyle]}>
-      <ThemedView style={styles.container}>
-        <ThemedView style={styles.titleContainer}>
-          <ThemedText type="subtitle">Explore</ThemedText>
-          <ThemedText style={styles.centerText} themeColor="textSecondary">
-            This starter app includes example{'\n'}code to help you get started.
-          </ThemedText>
+    <SafeAreaView style={styles.safeArea}>
+      <ShoHeader title="Catalogue & Archives" showBack />
 
-          <ExternalLink href="https://docs.expo.dev" asChild>
-            <Pressable style={({ pressed }) => pressed && styles.pressed}>
-              <ThemedView type="backgroundElement" style={styles.linkButton}>
-                <ThemedText type="link">Expo documentation</ThemedText>
-                <SymbolView
-                  tintColor={theme.text}
-                  name={{ ios: 'arrow.up.right.square', android: 'link', web: 'link' }}
-                  size={12}
-                />
-              </ThemedView>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {/* Editorial Heading */}
+        <View style={styles.headingSection}>
+          <Text style={styles.eyebrow}>Archival Catalogue</Text>
+          <Text style={styles.title}>All Silhouettes</Text>
+          <Text style={styles.subtitle}>
+            Hand-finished leathers, vulcanized rubber, and bespoke contour profiles.
+          </Text>
+        </View>
+
+        {/* Category Horizontal Filter Pills */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.filterScroll}>
+          {categories.map((cat) => {
+            const isSelected = selectedCategory === cat;
+            return (
+              <Pressable
+                key={cat}
+                onPress={() => setSelectedCategory(cat)}
+                style={({ pressed }) => [
+                  styles.filterPill,
+                  isSelected && styles.filterPillSelected,
+                  pressed && styles.pressed,
+                ]}>
+                <Text
+                  style={[
+                    styles.filterPillText,
+                    isSelected && styles.filterPillTextSelected,
+                  ]}>
+                  {cat}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </ScrollView>
+
+        {/* Sort & Results Bar */}
+        <View style={styles.sortBar}>
+          <Text style={styles.resultsCountText}>
+            Showing <Text style={styles.boldWhite}>{sortedProducts.length}</Text> silhouettes
+          </Text>
+
+          <View style={styles.sortOptionsRow}>
+            {(['featured', 'price-low', 'price-high'] as const).map((s) => (
+              <Pressable
+                key={s}
+                onPress={() => setActiveSort(s)}
+                style={({ pressed }) => [
+                  styles.sortBtn,
+                  activeSort === s && styles.sortBtnActive,
+                  pressed && styles.pressed,
+                ]}>
+                <Text
+                  style={[
+                    styles.sortBtnText,
+                    activeSort === s && styles.sortBtnTextActive,
+                  ]}>
+                  {s === 'featured' ? 'Drop' : s === 'price-low' ? '$ Low' : '$ High'}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {/* 2-Column Product Grid */}
+        <View style={styles.grid}>
+          {sortedProducts.map((p) => (
+            <View key={p.id} style={styles.gridItem}>
+              <ShoProductCard product={p} />
+            </View>
+          ))}
+        </View>
+
+        {sortedProducts.length === 0 && (
+          <View style={styles.noResultsBox}>
+            <ShoIcon name="inventory_2" size={36} color={ShoColors.textMuted} />
+            <Text style={styles.noResultsTitle}>No silhouettes in this category</Text>
+            <Pressable
+              onPress={() => setSelectedCategory('All')}
+              style={({ pressed }) => [styles.resetCategoryBtn, pressed && styles.pressed]}>
+              <Text style={styles.resetCategoryText}>View All Editions</Text>
             </Pressable>
-          </ExternalLink>
-        </ThemedView>
+          </View>
+        )}
 
-        <ThemedView style={styles.sectionsWrapper}>
-          <Collapsible title="File-based routing">
-            <ThemedText type="small">
-              This app has two screens: <ThemedText type="code">src/app/index.tsx</ThemedText> and{' '}
-              <ThemedText type="code">src/app/explore.tsx</ThemedText>
-            </ThemedText>
-            <ThemedText type="small">
-              The layout file in <ThemedText type="code">src/app/_layout.tsx</ThemedText> sets up
-              the tab navigator.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/router/introduction">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
+        <View style={{ height: 110 }} />
+      </ScrollView>
 
-          <Collapsible title="Android, iOS, and web support">
-            <ThemedView type="backgroundElement" style={styles.collapsibleContent}>
-              <ThemedText type="small">
-                You can open this project on Android, iOS, and the web. To open the web version,
-                press <ThemedText type="smallBold">w</ThemedText> in the terminal running this
-                project.
-              </ThemedText>
-              <Image
-                source={require('@/assets/images/tutorial-web.png')}
-                style={styles.imageTutorial}
-              />
-            </ThemedView>
-          </Collapsible>
-
-          <Collapsible title="Images">
-            <ThemedText type="small">
-              For static images, you can use the <ThemedText type="code">@2x</ThemedText> and{' '}
-              <ThemedText type="code">@3x</ThemedText> suffixes to provide files for different
-              screen densities.
-            </ThemedText>
-            <Image source={require('@/assets/images/react-logo.png')} style={styles.imageReact} />
-            <ExternalLink href="https://reactnative.dev/docs/images">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Light and dark mode components">
-            <ThemedText type="small">
-              This template has light and dark mode support. The{' '}
-              <ThemedText type="code">useColorScheme()</ThemedText> hook lets you inspect what the
-              user&apos;s current color scheme is, and so you can adjust UI colors accordingly.
-            </ThemedText>
-            <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-              <ThemedText type="linkPrimary">Learn more</ThemedText>
-            </ExternalLink>
-          </Collapsible>
-
-          <Collapsible title="Animations">
-            <ThemedText type="small">
-              This template includes an example of an animated component. The{' '}
-              <ThemedText type="code">src/components/ui/collapsible.tsx</ThemedText> component uses
-              the powerful <ThemedText type="code">react-native-reanimated</ThemedText> library to
-              animate opening this hint.
-            </ThemedText>
-          </Collapsible>
-        </ThemedView>
-        {Platform.OS === 'web' && <WebBadge />}
-      </ThemedView>
-    </ScrollView>
+      <ShoFloatingBottomNav />
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  scrollView: {
+  safeArea: {
     flex: 1,
+    backgroundColor: ShoColors.surface,
   },
-  contentContainer: {
-    flexDirection: 'row',
+  scrollContent: {
+    paddingHorizontal: ShoSpacing.margin,
+    paddingTop: ShoSpacing.sm,
+    gap: ShoSpacing.md,
+  },
+  headingSection: {
+    gap: 4,
+  },
+  eyebrow: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: ShoColors.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 1.5,
+  },
+  title: {
+    fontFamily: 'serif',
+    fontSize: 26,
+    fontWeight: '600',
+    color: ShoColors.primary,
+  },
+  subtitle: {
+    fontSize: 12,
+    color: ShoColors.onSurfaceVariant,
+    lineHeight: 18,
+  },
+  filterScroll: {
+    gap: 8,
+    paddingVertical: 4,
+  },
+  filterPill: {
+    paddingHorizontal: 16,
+    height: 38,
+    borderRadius: ShoRadius.full,
+    backgroundColor: ShoColors.surfaceContainer,
+    borderWidth: 1,
+    borderColor: ShoColors.borderSubtle,
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  container: {
-    maxWidth: MaxContentWidth,
+  filterPillSelected: {
+    backgroundColor: ShoColors.primaryFixed,
+    borderColor: ShoColors.primaryFixed,
+  },
+  filterPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: ShoColors.onSurfaceVariant,
+  },
+  filterPillTextSelected: {
+    color: ShoColors.onPrimaryFixed,
+    fontWeight: '800',
+  },
+  sortBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: ShoColors.borderSubtle,
+  },
+  resultsCountText: {
+    fontSize: 12,
+    color: ShoColors.textMuted,
+  },
+  boldWhite: {
+    color: ShoColors.onSurface,
+    fontWeight: '700',
+  },
+  sortOptionsRow: {
+    flexDirection: 'row',
+    gap: 6,
+  },
+  sortBtn: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: ShoRadius.full,
+    backgroundColor: ShoColors.surfaceContainerLow,
+  },
+  sortBtnActive: {
+    backgroundColor: ShoColors.surfaceContainerHighest,
+  },
+  sortBtnText: {
+    fontSize: 11,
+    color: ShoColors.textMuted,
+  },
+  sortBtnTextActive: {
+    color: ShoColors.primaryFixed,
+    fontWeight: '700',
+  },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 12,
+  },
+  gridItem: {
+    width: '48%',
     flexGrow: 1,
   },
-  titleContainer: {
-    gap: Spacing.three,
+  noResultsBox: {
+    backgroundColor: ShoColors.surfaceContainer,
+    borderRadius: ShoRadius.default,
+    padding: ShoSpacing.xl,
     alignItems: 'center',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.six,
+    justifyContent: 'center',
+    gap: 8,
   },
-  centerText: {
-    textAlign: 'center',
+  noResultsTitle: {
+    fontSize: 14,
+    color: ShoColors.onSurfaceVariant,
+  },
+  resetCategoryBtn: {
+    backgroundColor: ShoColors.primaryFixed,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: ShoRadius.full,
+    marginTop: 6,
+  },
+  resetCategoryText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: ShoColors.onPrimaryFixed,
   },
   pressed: {
-    opacity: 0.7,
-  },
-  linkButton: {
-    flexDirection: 'row',
-    paddingHorizontal: Spacing.four,
-    paddingVertical: Spacing.two,
-    borderRadius: Spacing.five,
-    justifyContent: 'center',
-    gap: Spacing.one,
-    alignItems: 'center',
-  },
-  sectionsWrapper: {
-    gap: Spacing.five,
-    paddingHorizontal: Spacing.four,
-    paddingTop: Spacing.three,
-  },
-  collapsibleContent: {
-    alignItems: 'center',
-  },
-  imageTutorial: {
-    width: '100%',
-    aspectRatio: 296 / 171,
-    borderRadius: Spacing.three,
-    marginTop: Spacing.two,
-  },
-  imageReact: {
-    width: 100,
-    height: 100,
-    alignSelf: 'center',
+    opacity: 0.8,
+    transform: [{ scale: 0.97 }],
   },
 });

@@ -39,7 +39,11 @@ export default function SignInScreen() {
       return;
     }
 
-    router.replace('/');
+    if (email.toLowerCase().trim() === 'admin@gmail.com') {
+      router.replace('/admin' as any);
+    } else {
+      router.replace('/booking-tracking' as any);
+    }
   };
 
   return (
@@ -131,6 +135,32 @@ export default function SignInScreen() {
           <Pressable onPress={() => router.push('/auth/sign-up')}>
             <Text style={styles.signUpLink}>Request Salon Invitation</Text>
           </Pressable>
+        </View>
+
+        {/* Fast Role Account Shortcuts */}
+        <View style={styles.quickFillContainer}>
+          <Text style={styles.quickFillHeading}>Quick Fill Test Credentials</Text>
+          <View style={styles.quickFillRow}>
+            <Pressable
+              onPress={() => {
+                setEmail('admin@gmail.com');
+                setPassword('Password123!');
+              }}
+              style={({ pressed }) => [styles.quickFillChip, pressed && styles.pressed]}>
+              <Text style={styles.quickFillRole}>ADMIN</Text>
+              <Text style={styles.quickFillEmail}>admin@gmail.com</Text>
+            </Pressable>
+
+            <Pressable
+              onPress={() => {
+                setEmail('member@gmail.com');
+                setPassword('Password123!');
+              }}
+              style={({ pressed }) => [styles.quickFillChip, pressed && styles.pressed]}>
+              <Text style={[styles.quickFillRole, { color: ShoColors.secondary }]}>MEMBER</Text>
+              <Text style={styles.quickFillEmail}>member@gmail.com</Text>
+            </Pressable>
+          </View>
         </View>
 
         {/* Fast Guest Demo Shortcut */}
@@ -280,5 +310,45 @@ const styles = StyleSheet.create({
   pressed: {
     opacity: 0.8,
     transform: [{ scale: 0.98 }],
+  },
+  quickFillContainer: {
+    backgroundColor: ShoColors.surfaceContainerLow,
+    borderRadius: ShoRadius.md,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: ShoColors.borderSubtle,
+    gap: 8,
+  },
+  quickFillHeading: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: ShoColors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 1,
+    textAlign: 'center',
+  },
+  quickFillRow: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  quickFillChip: {
+    flex: 1,
+    backgroundColor: ShoColors.surfaceContainer,
+    borderRadius: ShoRadius.sm,
+    padding: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: ShoColors.borderSubtle,
+  },
+  quickFillRole: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: ShoColors.primaryFixed,
+    letterSpacing: 1,
+  },
+  quickFillEmail: {
+    fontSize: 11,
+    color: ShoColors.onSurface,
+    marginTop: 2,
   },
 });

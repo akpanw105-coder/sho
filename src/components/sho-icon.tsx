@@ -44,7 +44,10 @@ export type ShoIconName =
   | '360'
   | 'info'
   | 'visibility'
-  | 'visibility_off';
+  | 'visibility_off'
+  | 'calendar_today'
+  | 'event'
+  | 'content_cut';
 
 // Map common intent names to valid expo-symbols / SF Symbols / Material Symbol identifiers
 const SYMBOL_MAPPING: Record<string, { ios: any; android: any; web: any }> = {
@@ -89,6 +92,9 @@ const SYMBOL_MAPPING: Record<string, { ios: any; android: any; web: any }> = {
   info: { ios: 'info.circle', android: 'info', web: 'info' },
   visibility: { ios: 'eye.fill', android: 'visibility', web: 'visibility' },
   visibility_off: { ios: 'eye.slash.fill', android: 'visibility_off', web: 'visibility_off' },
+  calendar_today: { ios: 'calendar', android: 'calendar_today', web: 'calendar_today' },
+  event: { ios: 'calendar.badge.clock', android: 'event', web: 'event' },
+  content_cut: { ios: 'scissors', android: 'content_cut', web: 'content_cut' },
 };
 
 interface ShoIconProps {

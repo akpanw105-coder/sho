@@ -63,27 +63,50 @@ export default function UserProfileScreen() {
     {
       title: 'Salon Privileges & Settings',
       items: [
+        ...(isAdmin
+          ? [
+              {
+                icon: 'admin_panel_settings' as const,
+                label: 'Admin Control Center',
+                sub: 'Manage products, orders, inventory & patrons',
+                badge: 'STAFF',
+                onPress: () => router.push('/admin'),
+              },
+              {
+                icon: 'calendar_today' as const,
+                label: 'Barber Bookings Manager',
+                sub: 'Approve, reject, and schedule appointments',
+                badge: 'ADMIN',
+                onPress: () => router.push('/admin/bookings' as any),
+              },
+            ]
+          : []),
         {
-          icon: 'admin_panel_settings',
-          label: 'Admin Control Center',
-          sub: 'Manage products, orders, inventory & patrons',
-          badge: 'STAFF',
-          onPress: () => router.push('/admin'),
+          icon: 'event' as const,
+          label: 'My Salon Appointments',
+          sub: 'Track status of your barber bookings',
+          onPress: () => router.push('/booking-tracking' as any),
         },
         {
-          icon: 'notifications',
+          icon: 'content_cut' as const,
+          label: 'Book Barber Appointment',
+          sub: 'Schedule bespoke haircut, beard trim & styling',
+          onPress: () => router.push('/booking' as any),
+        },
+        {
+          icon: 'notifications' as const,
           label: 'Drop Alerts & Notifications',
           sub: 'Private Salon and release calendar',
           onPress: () => router.push('/notifications'),
         },
         {
-          icon: 'location_on',
+          icon: 'location_on' as const,
           label: 'Shipping Destinations',
           sub: user?.address.street || 'Set default delivery address',
           onPress: () => Alert.alert('Saved Address', `${user?.address.street}, ${user?.address.city}`),
         },
         {
-          icon: 'credit_card',
+          icon: 'credit_card' as const,
           label: 'Payment Instruments',
           sub: 'Mastercard •••• 4242',
           onPress: () => Alert.alert('Payment Method', 'Mastercard ending in 4242 is active and encrypted.'),

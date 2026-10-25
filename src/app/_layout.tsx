@@ -45,6 +45,9 @@ export default function RootLayout() {
             <Stack.Screen name="admin/orders" />
             <Stack.Screen name="admin/customers" />
             <Stack.Screen name="admin/inventory" />
+            <Stack.Screen name="admin/bookings" />
+            <Stack.Screen name="booking" />
+            <Stack.Screen name="booking-tracking" />
           </Stack>
         </View>
       </ShoProvider>

@@ -12,6 +12,43 @@ import {
   INITIAL_NOTIFICATIONS,
 } from '@/constants/sho-mock-data';
 
+export interface BarberService {
+  id: string;
+  name: string;
+  duration_minutes: number;
+  price: number;
+  description: string;
+  is_active: boolean;
+}
+
+export interface BarberBookingItem {
+  id: string;
+  booking_id: string;
+  service_id: string;
+  service_name: string;
+  duration_minutes: number;
+  price: number;
+}
+
+export interface BarberBooking {
+  id: string;
+  reference: string;
+  user_id: string | null;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  booking_date: string;
+  booking_date_label: string;
+  booking_time: string;
+  total_price: number;
+  status: 'pending' | 'confirmed' | 'cancelled';
+  payment_method: 'card' | 'atelier';
+  payment_status: 'pending' | 'completed' | 'failed';
+  payment_reference: string | null;
+  created_at: string;
+  items?: BarberBookingItem[];
+}
+
 export interface UserProfile {
   id: string;
   name: string;
@@ -19,7 +56,7 @@ export interface UserProfile {
   phone: string;
   tier: string;
   avatar: string;
-  role: 'customer' | 'admin';
+  role: 'customer' | 'admin' | 'member';
   address: {
     fullName: string;
     street: string;
@@ -86,6 +123,28 @@ interface ShoContextType {
   setSearchQuery: (q: string) => void;
   selectedCategory: string;
   setSelectedCategory: (cat: string) => void;
+
+  // Barber Shop Appointments
+  services: BarberService[];
+  isLoadingServices: boolean;
+  fetchServices: () => Promise<void>;
+  bookings: BarberBooking[];
+  isLoadingBookings: boolean;
+  fetchBookings: () => Promise<void>;
+  createBooking: (params: {
+    bookingDate: string;
+    bookingDateLabel: string;
+    bookingTime: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    totalPrice: number;
+    paymentMethod: 'card' | 'atelier';
+    serviceIds: string[];
+  }) => Promise<{ data?: any; error?: string | null }>;
+  approveBooking: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
+  rejectBooking: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
+  cancelBooking: (bookingId: string) => Promise<{ success: boolean; error?: string }>;
 }
 
 const ShoContext = createContext<ShoContextType | undefined>(undefined);
@@ -151,7 +210,7 @@ export function ShoProvider({ children }: { children: React.ReactNode }) {
           phone: profile.phone || '',
           tier: profile.tier || 'Member',
           avatar: profile.avatar_url || '',
-          role: (profile.role as 'customer' | 'admin') || 'customer',
+          role: (profile.role as 'customer' | 'admin' | 'member') || 'member',
           address: address
             ? {
                 fullName: address.full_name,
@@ -941,6 +1000,202 @@ export function ShoProvider({ children }: { children: React.ReactNode }) {
 
   const unreadNotificationsCount = notifications.filter((n) => !n.read).length;
 
+  // Barber Shop State
+  const [services, setServices] = useState<BarberService[]>([]);
+  const [isLoadingServices, setIsLoadingServices] = useState(false);
+  const [bookings, setBookings] = useState<BarberBooking[]>([]);
+  const [isLoadingBookings, setIsLoadingBookings] = useState(false);
+
+  // Fetch Services from Supabase
+  const fetchServices = useCallback(async () => {
+    setIsLoadingServices(true);
+    try {
+      const { data, error } = await supabase
+        .from('services')
+        .select('*')
+        .order('price', { ascending: true });
+
+      if (error) {
+        console.warn('Supabase fetchServices error:', error.message);
+      } else if (data) {
+        setServices(
+          data.map((s: any) => ({
+            id: s.id,
+            name: s.name,
+            duration_minutes: s.duration_minutes,
+            price: Number(s.price),
+            description: s.description || '',
+            is_active: s.is_active ?? true,
+          }))
+        );
+      }
+    } catch (err) {
+      console.warn('Error fetching services:', err);
+    } finally {
+      setIsLoadingServices(false);
+    }
+  }, []);
+
+  // Fetch Bookings from Supabase (RLS handles filtering: admin sees all, member sees own)
+  const fetchBookings = useCallback(async () => {
+    setIsLoadingBookings(true);
+    try {
+      const { data, error } = await supabase
+        .from('bookings')
+        .select(`
+          *,
+          items:booking_items(*)
+        `)
+        .order('booking_date', { ascending: false })
+        .order('booking_time', { ascending: false });
+
+      if (error) {
+        console.warn('Supabase fetchBookings error:', error.message);
+      } else if (data) {
+        const mapped: BarberBooking[] = data.map((b: any) => ({
+          id: b.id,
+          reference: b.reference,
+          user_id: b.user_id,
+          customer_name: b.customer_name,
+          customer_email: b.customer_email,
+          customer_phone: b.customer_phone || '',
+          booking_date: b.booking_date,
+          booking_date_label: b.booking_date_label || b.booking_date,
+          booking_time: b.booking_time,
+          total_price: Number(b.total_price),
+          status: b.status,
+          payment_method: b.payment_method,
+          payment_status: b.payment_status,
+          payment_reference: b.payment_reference,
+          created_at: b.created_at,
+          items: b.items?.map((it: any) => ({
+            id: it.id,
+            booking_id: it.booking_id,
+            service_id: it.service_id,
+            service_name: it.service_name,
+            duration_minutes: it.duration_minutes,
+            price: Number(it.price),
+          })),
+        }));
+        setBookings(mapped);
+      }
+    } catch (err) {
+      console.warn('Error fetching bookings:', err);
+    } finally {
+      setIsLoadingBookings(false);
+    }
+  }, []);
+
+  // Create booking atomically
+  const createBooking = async (params: {
+    bookingDate: string;
+    bookingDateLabel: string;
+    bookingTime: string;
+    customerName: string;
+    customerEmail: string;
+    customerPhone?: string;
+    totalPrice: number;
+    paymentMethod: 'card' | 'atelier';
+    serviceIds: string[];
+  }) => {
+    try {
+      const { data, error } = await supabase.rpc('create_booking_atomic', {
+        p_booking_date: params.bookingDate,
+        p_booking_time: params.bookingTime,
+        p_customer_name: params.customerName,
+        p_customer_email: params.customerEmail,
+        p_customer_phone: params.customerPhone || '',
+        p_booking_date_label: params.bookingDateLabel,
+        p_total_price: params.totalPrice,
+        p_payment_method: params.paymentMethod,
+        p_service_ids: params.serviceIds,
+      });
+
+      if (error) {
+        return { error: error.message };
+      }
+
+      await fetchBookings();
+      return { data, error: null };
+    } catch (err: any) {
+      return { error: err.message || 'Failed to create booking' };
+    }
+  };
+
+  // Admin: Approve booking (sets status='confirmed')
+  const approveBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'confirmed', updated_at: new Date().toISOString() })
+        .eq('id', bookingId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: 'confirmed' } : b))
+      );
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to approve booking' };
+    }
+  };
+
+  // Admin: Reject booking (sets status='cancelled')
+  const rejectBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', bookingId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b))
+      );
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to reject booking' };
+    }
+  };
+
+  // Member: Cancel own booking (sets status='cancelled' enforced by RLS)
+  const cancelBooking = async (bookingId: string) => {
+    try {
+      const { error } = await supabase
+        .from('bookings')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', bookingId);
+
+      if (error) {
+        return { success: false, error: error.message };
+      }
+
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: 'cancelled' } : b))
+      );
+      return { success: true };
+    } catch (err: any) {
+      return { success: false, error: err.message || 'Failed to cancel appointment' };
+    }
+  };
+
+  // Initial load of services and bookings on mount or when user changes
+  useEffect(() => {
+    fetchServices();
+  }, [fetchServices]);
+
+  useEffect(() => {
+    if (user) {
+      fetchBookings();
+    }
+  }, [user, fetchBookings]);
+
   return (
     <ShoContext.Provider
       value={{
@@ -985,6 +1240,16 @@ export function ShoProvider({ children }: { children: React.ReactNode }) {
         setSearchQuery,
         selectedCategory,
         setSelectedCategory,
+        services,
+        isLoadingServices,
+        fetchServices,
+        bookings,
+        isLoadingBookings,
+        fetchBookings,
+        createBooking,
+        approveBooking,
+        rejectBooking,
+        cancelBooking,
       }}>
       {children}
     </ShoContext.Provider>

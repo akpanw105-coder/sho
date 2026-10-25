@@ -14,14 +14,23 @@ import { ShoIcon } from '@/components/sho-icon';
 import { useSho } from '@/context/sho-context';
 
 export default function AdminDashboardScreen() {
-  const { products, orders, customers, isAdmin, user } = useSho();
+  const { products, orders, customers, bookings, isAdmin, user } = useSho();
 
   const totalRevenue = orders.reduce((acc, o) => acc + o.total, 0);
   const pendingOrders = orders.filter((o) => o.status === 'Processing' || o.status === 'In Transit');
   const totalStock = products.reduce((acc, p) => acc + p.stockCount, 0);
   const lowStockProducts = products.filter((p) => p.stockCount <= 15);
+  const pendingBookings = bookings.filter((b) => b.status === 'pending');
 
   const adminNavCards = [
+    {
+      title: 'Barber Appointments',
+      subtitle: `${pendingBookings.length} requests awaiting approval`,
+      count: bookings.length,
+      icon: 'calendar_today' as const,
+      route: '/admin/bookings',
+      tag: `${pendingBookings.length} Pending`,
+    },
     {
       title: 'Products & Catalogue',
       subtitle: `${products.length} active models listed`,
